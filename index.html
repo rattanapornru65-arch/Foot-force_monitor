@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Mali&display=swap" rel="stylesheet">
+  <title>Foot Pressure Monitor</title>
+  <style>
+    body {
+      font-family: 'Mali', cursive;
+      background-color: #e0f2ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #007acc;
+      margin-bottom: 10px;
+    }
+    .button-thai {
+      font-family: 'Mali', cursive;
+    }
+    button {
+      background-color: #33CCCC;
+      color: #000000;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-bottom: 30px;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #005f99;
+    }
+    .foot-container {
+      display: flex;
+      gap: 60px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .foot {
+      position: relative;
+      width: 300px;
+    }
+    .foot img {
+      width: 100%;
+      border: 5px solid #b3e0ff;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .sensor {
+      position: absolute;
+      background: rgba(245, 15, 103, 0.8);
+      color: white;
+      font-size: 16px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    #L1 { top: 15px; right: 80px; }
+    #L2 { top: 90px; right: 90px; }
+    #L3 { top: 140px; right: 185px; }
+    #L4 { top: 260px; left: 140px; }
+    #R1 { top: 15px; right: 185px; }
+    #R2 { top: 90px; left: 100px; }
+    #R3 { top: 140px; right: 80px; }
+    #R4 { top: 260px; right: 140px; }
+    footer {
+      margin-top: 40px;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+ 
+<h1>ระบบแสดงแรงกดตามตำแหน่งลายเท้าแบบเรียลไทม์</h1>
+ <div>
+ <button class="button-thai" onclick="connectLeftFoot()">🔵 เชื่อมต่อเท้าซ้าย</button>
+ <button class="button-thai" onclick="connectRightFoot()">🔵 เชื่อมต่อเท้าขวา</button>
+ </div>
+<div style="margin: 20px; font-family: 'Mali', cursive;">
+ <button class="button-thai" onclick="startRecording()">▶️ เริ่มบันทึก (1 นาที)</button>
+ <button class="button-thai" onclick="stopRecording()" id="stopBtn" disabled>⏹ หยุดบันทึก</button>
+ <button class="button-thai" onclick="downloadCSV()" id="downloadBtn" style="display:none;">⬇️ ดาวน์โหลด CSV</button>
+ </div>
+<div class="foot-container"> </div>
+</body>
+  <div class="foot-container">
+    <div class="foot">
+      <img src="./img/left.png" alt="Left Foot">
+      <div class="sensor" id="L1">0</div>
+      <div class="sensor" id="L2">0</div>
+      <div class="sensor" id="L3">0</div>
+      <div class="sensor" id="L4">0</div>
+    </div>
+    <div class="foot">
+      <img src="./img/right.png" alt="Right Foot">
+      <div class="sensor" id="R1">0</div>
+      <div class="sensor" id="R2">0</div>
+      <div class="sensor" id="R3">0</div>
+      <div class="sensor" id="R4">0</div>
+    </div>
+  </div>
+  <script>
+   let recording = false;
+ let dataLog = [];
+ let recordTimer;
+
+ let leftDevice, leftCharacteristic;
+ let rightDevice, rightCharacteristic;
+
+ let lastLeftData = Array(4).fill(0).map(val => val.toFixed(2));
+ let lastRightData = Array(4).fill(0).map(val => val.toFixed(2));
+
+ async function connectLeftFoot() {
+ try {
+ leftDevice = await navigator.bluetooth.requestDevice({
+ filters: [{ name: "ESP32-LeftFoot" }],
+ optionalServices: ["12345678-1234-1234-1234-1234567890ab"]
+ });
+ const leftServer = await leftDevice.gatt.connect();
+ const leftService = await leftServer.getPrimaryService("12345678-1234-1234-1234-1234567890ab");
+ leftCharacteristic = await leftService.getCharacteristic("87654321-4321-4321-4321-abcdefabcdef");
+ leftCharacteristic.startNotifications();
+ leftCharacteristic.addEventListener("characteristicvaluechanged", handleLeftFootData);
+ alert("เชื่อมต่อเท้าซ้ายสำเร็จแล้ว!");
+ } catch (error) {
+ console.error("BLE Error:", error);
+ alert("ไม่สามารถเชื่อมต่อเท้าซ้ายได้ กรุณาลองใหม่");
+ }
+ }
+
+ async function connectRightFoot() {
+ try {
+ rightDevice = await navigator.bluetooth.requestDevice({
+ filters: [{ name: "ESP32-RightFoot" }],
+ optionalServices: ["12345678-1234-1234-1234-1234567890ab"]
+ });
+ const rightServer = await rightDevice.gatt.connect();
+ const rightService = await rightServer.getPrimaryService("12345678-1234-1234-1234-1234567890ab");
+ rightCharacteristic = await rightService.getCharacteristic("87654321-4321-4321-4321-abcdefabcdef");
+ rightCharacteristic.startNotifications();
+ rightCharacteristic.addEventListener("characteristicvaluechanged", handleRightFootData);
+ alert("เชื่อมต่อเท้าขวาสำเร็จแล้ว!");
+ } catch (error) {
+ console.error("BLE Error:", error);
+ alert("ไม่สามารถเชื่อมต่อเท้าขวาได้ กรุณาลองใหม่");
+}
+ }
+
+ function handleLeftFootData(event) {
+ const value = event.target.value;
+ const dataView = new DataView(value.buffer);
+ let forceValues = [];
+ for (let i = 0; i < value.byteLength / 4; i++) {
+ forceValues.push(dataView.getFloat32(i * 4, true));
+ }
+ 
+        lastLeftData = forceValues.map(val => val.toFixed(2));
+ 
+ const displayIds = ["L1", "L2", "L3", "L4"];
+ for (let i = 0; i < forceValues.length && i < displayIds.length; i++) {
+ let id = displayIds[i];
+ let val = forceValues[i].toFixed(2);
+ document.getElementById(id).innerText = `${val} N`;
+ document.getElementById(id).style.backgroundColor = getColorByPressure(val);
+ }
+ }
+
+ function handleRightFootData(event) {
+ const value = event.target.value;
+ const dataView = new DataView(value.buffer);
+ let forceValues = [];
+ for (let i = 0; i < value.byteLength / 4; i++) {
+ forceValues.push(dataView.getFloat32(i * 4, true));
+ }
+ 
+        lastRightData = forceValues.map(val => val.toFixed(2));
+ 
+ const displayIds = ["R1", "R2", "R3", "R4"];
+ for (let i = 0; i < forceValues.length && i < displayIds.length; i++) {
+ let id = displayIds[i];
+ let val = forceValues[i].toFixed(2);
+ document.getElementById(id).innerText = `${val} N`;
+ document.getElementById(id).style.backgroundColor = getColorByPressure(val);
+ }
+ }
+
+ function getColorByPressure(value) {
+ value = parseFloat(value);
+ if (value <= 5.0) return "#66ccff";
+ if (value <= 50.0) return "#33cc33";
+ if (value <= 80.0) return "#ff9933";
+return "#ff3333";
+ }
+
+function startRecording() {
+ if (!leftCharacteristic || !rightCharacteristic) {
+ alert("กรุณาเชื่อมต่อ Bluetooth กับอุปกรณ์ทั้งสองก่อนเริ่มบันทึก");
+ return;
+ }
+ 
+      dataLog = [["L1 (N)", "L2 (N)", "L3 (N)", "L4 (N)", "R1 (N)", "R2 (N)", "R3 (N)", "R4 (N)"]];
+ recording = true;
+ document.getElementById("stopBtn").disabled = false;
+ document.getElementById("downloadBtn").style.display = "none";
+ alert("เริ่มบันทึกข้อมูลแล้ว (1 นาที)");
+ 
+ recordTimer = setInterval(() => {
+ dataLog.push([...lastLeftData, ...lastRightData]);
+ }, 100);
+
+setTimeout(() => {
+ stopRecording();
+ alert("ครบ 1 นาทีแล้ว หยุดบันทึกอัตโนมัติ");
+ }, 60 * 1000);
+ }
+
+ function stopRecording() {
+if (!recording) return;
+ recording = false;
+ clearInterval(recordTimer);
+ document.getElementById("stopBtn").disabled = true;
+ document.getElementById("downloadBtn").style.display = "inline-block";
+ alert("หยุดบันทึกแล้ว");
+ }
+
+ function downloadCSV() {
+ if (dataLog.length <= 1) {
+ alert("ไม่มีข้อมูลให้ดาวน์โหลด");
+ return;
+ }
+let csvContent = dataLog.map(row => row.join(",")).join("\n");
+ const blob = new Blob([csvContent], { type: "text/csv" });
+ const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+ a.download = `foot_data_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+ document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+ URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
