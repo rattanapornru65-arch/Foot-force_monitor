@@ -138,7 +138,7 @@
 </div>
 
 <div style="margin: 20px; text-align: center;">
-  <button class="button-thai" onclick="startRecording()">▶️ เริ่มบันทึก (1 นาที)</button>
+  <button class="button-thai" onclick="startRecording()">▶️ เริ่มบันทึก </button>
   <button class="button-thai" onclick="stopRecording()" id="stopBtn" disabled>⏹ หยุดบันทึก</button>
   <button class="button-thai" onclick="downloadCSV()" id="downloadBtn" style="display:none;">⬇️ ดาวน์โหลด CSV</button>
 </div>
@@ -268,16 +268,16 @@
     recording = true;
     document.getElementById("stopBtn").disabled = false;
     document.getElementById("downloadBtn").style.display = "none";
-    alert("เริ่มบันทึกข้อมูลแล้ว (1 นาที)");
+    alert("เริ่มบันทึกข้อมูลแล้ว");
 
     recordTimer = setInterval(() => {
       dataLog.push([...lastLeftData, ...lastRightData]);
     }, 100);
 
-    setTimeout(() => {
-      stopRecording();
-      alert("ครบ 1 นาทีแล้ว หยุดบันทึกอัตโนมัติ");
-    }, 60 * 1000);
+    ///setTimeout(() => {
+      ///stopRecording();
+      ///alert("ครบ 1 นาทีแล้ว หยุดบันทึกอัตโนมัติ");
+    ////}, 60 * 1000);
   }
 
   function stopRecording() {
